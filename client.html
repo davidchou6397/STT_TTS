@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台語即時語音辨識 | Whisper ASR</title>
+    <title>demo</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -153,11 +153,7 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🎤 台語即時語音辨識</h1>
-            <p class="subtitle">Whisper small + CPU | language="nan"</p>
-        </header>
-
+        
         <div class="status-bar">
             <div class="status-dot" id="statusDot"></div>
             <span class="status-text" id="statusText">未連接</span>
@@ -185,7 +181,7 @@
                 <div class="setting-item">
                     <span class="setting-label">伺服器：</span>
                     <input type="text" class="setting-select" id="serverUrl" 
-                           value="ws://localhost:3597/ws/" style="width: 220px;">
+                           value="wss://whisper-asr-production.up.railway.app/ws/" style="width: 220px;">
                 </div>
             </div>
 
