@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台語即時語音辨識 | Whisper ASR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #10b981;
+            --bg: #0a0a0a;
+            --card: #171717;
+            --input: #262626;
+            --text: #fafafa;
+            --text-muted: #737373;
+            --border: rgba(255,255,255,0.1);
+            --success: #22c55e;
+            --error: #ef4444;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        header { text-align: center; margin-bottom: 24px; }
+        h1 { font-size: 1.8rem; margin-bottom: 8px; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; }
+        
+        .status-bar {
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            padding: 12px; background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; margin-bottom: 20px;
+        }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted);
+        }
+        .status-dot.connected { background: var(--success); }
+        .status-dot.error { background: var(--error); }
+        .status-text { font-size: 0.85rem; color: #a3a3a3; }
+        
+        .main-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 20px; overflow: hidden;
+        }
+        
+        .record-section {
+            padding: 32px; text-align: center;
+            background: linear-gradient(180deg, rgba(16,185,129,0.05) 0%, transparent 100%);
+        }
+        .record-btn {
+            width: 100px; height: 100px; border-radius: 50%;
+            border: 3px solid var(--border); background: var(--input);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 16px; font-size: 32px; transition: all 0.3s;
+        }
+        .record-btn:hover { border-color: var(--primary); transform: scale(1.05); }
+        .record-btn.recording {
+            border-color: var(--error); background: rgba(239,68,68,0.1);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+            50% { box-shadow: 0 0 0 15px rgba(239,68,68,0); }
+        }
+        .record-label { font-size: 0.9rem; color: var(--text-muted); }
+        
+        .visualizer {
+            height: 60px; display: flex; align-items: center; justify-content: center;
+            gap: 2px; margin-bottom: 20px;
+        }
+        .viz-bar {
+            width: 3px; height: 8px; background: var(--primary);
+            border-radius: 2px; transition: height 0.05s; opacity: 0.4;
+        }
+        .visualizer.active .viz-bar { opacity: 1; }
+        
+        .settings-row {
+            display: flex; gap: 16px; padding: 16px 24px;
+            border-top: 1px solid var(--border); flex-wrap: wrap;
+        }
+        .setting-item { display: flex; align-items: center; gap: 8px; }
+        .setting-label { font-size: 0.8rem; color: var(--text-muted); }
+        .setting-select {
+            padding: 8px 12px; background: var(--input); border: 1px solid var(--border);
+            border-radius: 6px; color: var(--text); font-size: 0.85rem;
+        }
+        
+        .transcript-section { padding: 24px; }
+        .transcript-header {
+            display: flex; justify-content: space-between; margin-bottom: 12px;
+        }
+        .transcript-title {
+            font-size: 0.8rem; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .live-badge {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 10px; background: rgba(34,197,94,0.1);
+            border-radius: 12px; font-size: 0.7rem; color: var(--success);
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .live-badge.active { opacity: 1; }
+        .live-badge .dot {
+            width: 6px; height: 6px; background: var(--success);
+            border-radius: 50%; animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        
+        .transcript-box {
+            background: var(--input); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px; min-height: 180px;
+            max-height: 350px; overflow-y: auto; font-size: 1.1rem; line-height: 1.8;
+        }
+        .transcript-box .placeholder { color: var(--text-muted); font-style: italic; }
+        .transcript-box .processing { color: #f59e0b; font-style: italic; }
+        .cursor {
+            display: inline-block; width: 2px; height: 1em;
+            background: var(--primary); animation: cursor-blink 1s infinite;
+            vertical-align: text-bottom; margin-left: 2px;
+        }
+        @keyframes cursor-blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+        
+        .controls { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+        .ctrl-btn {
+            padding: 8px 16px; background: var(--input); border: 1px solid var(--border);
+            border-radius: 8px; color: #a3a3a3; font-size: 0.85rem; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ctrl-btn:hover { background: var(--primary); color: white; }
+        
+        .info-bar {
+            display: flex; gap: 16px; padding: 12px 24px;
+            border-top: 1px solid var(--border); font-size: 0.8rem;
+            color: var(--text-muted); flex-wrap: wrap;
+        }
+        .info-item { display: flex; gap: 6px; }
+        .info-value { color: #a3a3a3; font-family: monospace; }
+        
+        .help-box {
+            margin-top: 20px; padding: 16px; background: var(--card);
+            border: 1px solid var(--border); border-radius: 12px;
+            font-size: 0.85rem; color: #a3a3a3; line-height: 1.6;
+        }
+        .help-box code {
+            background: var(--input); padding: 2px 6px; border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎤 台語即時語音辨識</h1>
+            <p class="subtitle">Whisper small + CPU | language="nan"</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">未連接</span>
+            <button class="ctrl-btn" id="connBtn" onclick="toggleConnection()">連接伺服器</button>
+        </div>
+
+        <div class="main-card">
+            <div class="record-section">
+                <div class="visualizer" id="visualizer"></div>
+                <button class="record-btn" id="recordBtn" onclick="toggleRecording()" disabled>🎤</button>
+                <div class="record-label" id="recordLabel">請先連接伺服器</div>
+            </div>
+
+            <div class="settings-row">
+                <div class="setting-item">
+                    <span class="setting-label">語言：</span>
+                    <select class="setting-select" id="langSelect" onchange="updateLanguage()">
+                        <option value="nan">台語 (nan)</option>
+                        <option value="hak">客語 (hak)</option>
+                        <option value="zh">中文 (zh)</option>
+                        <option value="yue">粵語 (yue)</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">伺服器：</span>
+                    <input type="text" class="setting-select" id="serverUrl" 
+                           value="ws://localhost:3597/ws/" style="width: 220px;">
+                </div>
+            </div>
+
+            <div class="transcript-section">
+                <div class="transcript-header">
+                    <span class="transcript-title">📝 即時辨識結果</span>
+                    <div class="live-badge" id="liveBadge">
+                        <span class="dot"></span>LIVE
+                    </div>
+                </div>
+                <div class="transcript-box" id="transcriptBox">
+                    <span class="placeholder">連接伺服器後開始錄音，文字會即時顯示...</span>
+                </div>
+                <div class="controls">
+                    <button class="ctrl-btn" onclick="clearTranscript()">🗑️ 清除</button>
+                    <button class="ctrl-btn" onclick="copyTranscript()">📋 複製</button>
+                    <button class="ctrl-btn" onclick="downloadTranscript()">💾 下載</button>
+                </div>
+            </div>
+
+            <div class="info-bar">
+                <div class="info-item"><span>模型:</span><span class="info-value" id="infoModel">-</span></div>
+                <div class="info-item"><span>語言:</span><span class="info-value" id="infoLang">-</span></div>
+                <div class="info-item"><span>字數:</span><span class="info-value" id="infoChars">0</span></div>
+            </div>
+        </div>
+
+        <div class="help-box">
+            💡 <strong>使用說明：</strong><br>
+            1. 啟動伺服器：<code>python server.py</code><br>
+            2. 點擊「連接伺服器」<br>
+            3. 點擊麥克風開始即時辨識（每 5 秒更新一次）<br>
+            ⚠️ CPU 模式處理較慢，請耐心等待
+        </div>
+    </div>
+
+    <script>
+        let ws = null, isConnected = false, isRecording = false;
+        let mediaStream = null, audioContext = null, processor = null, analyser = null;
+        let transcript = '';
+        const clientId = 'c_' + Math.random().toString(36).substr(2, 9);
+
+        // Init visualizer
+        document.addEventListener('DOMContentLoaded', () => {
+            const v = document.getElementById('visualizer');
+            for (let i = 0; i < 50; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'viz-bar';
+                v.appendChild(bar);
+            }
+        });
+
+        function updateVisualizer() {
+            if (!analyser || !isRecording) return;
+            const data = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(data);
+            const bars = document.querySelectorAll('.viz-bar');
+            bars.forEach((bar, i) => {
+                const val = data[Math.floor(i * data.length / bars.length)] || 0;
+                bar.style.height = Math.max(8, (val / 255) * 50) + 'px';
+            });
+            if (isRecording) requestAnimationFrame(updateVisualizer);
+        }
+
+        function toggleConnection() {
+            isConnected ? disconnect() : connect();
+        }
+
+        function connect() {
+            const url = document.getElementById('serverUrl').value + clientId;
+            updateStatus('connecting', '連接中...');
+            
+            ws = new WebSocket(url);
+            ws.onopen = () => {
+                isConnected = true;
+                updateStatus('connected', '已連接');
+                document.getElementById('recordBtn').disabled = false;
+                document.getElementById('recordLabel').textContent = '點擊開始辨識';
+                document.getElementById('connBtn').textContent = '斷開連接';
+            };
+            ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+            ws.onclose = () => {
+                isConnected = false;
+                updateStatus('', '已斷開');
+                document.getElementById('recordBtn').disabled = true;
+                document.getElementById('recordLabel').textContent = '請先連接伺服器';
+                document.getElementById('connBtn').textContent = '連接伺服器';
+                if (isRecording) stopRecording();
+            };
+            ws.onerror = () => updateStatus('error', '連接錯誤');
+        }
+
+        function disconnect() {
+            if (ws) ws.close();
+            if (isRecording) stopRecording();
+        }
+
+        function updateStatus(state, text) {
+            const dot = document.getElementById('statusDot');
+            dot.className = 'status-dot' + (state ? ' ' + state : '');
+            document.getElementById('statusText').textContent = text;
+        }
+
+        function handleMessage(data) {
+            if (data.type === 'connected' && data.config) {
+                document.getElementById('infoModel').textContent = data.config.model_size;
+                document.getElementById('infoLang').textContent = data.config.language;
+            } else if (data.type === 'processing') {
+                showProcessing(data.message);
+            } else if (data.type === 'transcript' && data.text) {
+                transcript += data.text;
+                updateTranscriptUI();
+                document.getElementById('infoLang').textContent = 
+                    data.language + ' (' + Math.round(data.language_probability * 100) + '%)';
+            }
+        }
+
+        function toggleRecording() {
+            isRecording ? stopRecording() : startRecording();
+        }
+
+        async function startRecording() {
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true }
+                });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                processor.onaudioprocess = (e) => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(new Float32Array(e.inputBuffer.getChannelData(0)).buffer);
+                    }
+                };
+                
+                isRecording = true;
+                document.getElementById('recordBtn').classList.add('recording');
+                document.getElementById('recordLabel').textContent = '點擊停止辨識';
+                document.getElementById('visualizer').classList.add('active');
+                document.getElementById('liveBadge').classList.add('active');
+                updateVisualizer();
+            } catch (err) {
+                alert('無法存取麥克風: ' + err.message);
+            }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            if (processor) processor.disconnect();
+            if (audioContext) audioContext.close();
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            
+            document.querySelectorAll('.viz-bar').forEach(b => b.style.height = '8px');
+            document.getElementById('recordBtn').classList.remove('recording');
+            document.getElementById('recordLabel').textContent = '點擊開始辨識';
+            document.getElementById('visualizer').classList.remove('active');
+            document.getElementById('liveBadge').classList.remove('active');
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'clear' }));
+            }
+        }
+
+        function updateTranscriptUI() {
+            const box = document.getElementById('transcriptBox');
+            box.innerHTML = transcript 
+                ? '<span>' + escapeHtml(transcript) + '</span>' + (isRecording ? '<span class="cursor"></span>' : '')
+                : '<span class="placeholder">連接伺服器後開始錄音...</span>';
+            document.getElementById('infoChars').textContent = transcript.length;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function showProcessing(msg) {
+            const box = document.getElementById('transcriptBox');
+            box.innerHTML = '<span>' + escapeHtml(transcript) + '</span>' +
+                '<span class="processing"> ' + msg + '</span><span class="cursor"></span>';
+        }
+
+        function clearTranscript() {
+            transcript = '';
+            updateTranscriptUI();
+        }
+
+        function copyTranscript() {
+            if (transcript) navigator.clipboard.writeText(transcript).then(() => alert('已複製！'));
+        }
+
+        function downloadTranscript() {
+            if (!transcript) return;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([transcript], { type: 'text/plain' }));
+            a.download = 'transcript_' + new Date().toISOString().slice(0,10) + '.txt';
+            a.click();
+        }
+
+        function updateLanguage() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'config', language: document.getElementById('langSelect').value }));
+            }
+        }
+
+        function escapeHtml(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# render.yaml - Render Blueprint
+services:
+  - type: web
+    name: whisper-asr
+    runtime: docker
+    region: singapore  # 離台灣近
+    plan: standard     # 需要較多記憶體
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 3597
+      - key: WHISPER_MODEL
+        value: small
+      - key: WHISPER_DEVICE
+        value: cpu
+      - key: WHISPER_COMPUTE
+        value: int8
+      - key: WHISPER_LANG
+        value: nan
+    healthCheckPath: /health
