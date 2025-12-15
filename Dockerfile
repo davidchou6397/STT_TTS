@@ -11,8 +11,8 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 預先下載模型（避免啟動時下載太久）
-RUN python -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')"
+# 預先下載 tiny 模型（最小，約 75MB，省記憶體）
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('tiny', device='cpu', compute_type='int8')"
 
 # 複製應用程式
 COPY server.py .
@@ -20,7 +20,7 @@ COPY client.html .
 
 # 設定環境變數
 ENV PORT=3597
-ENV WHISPER_MODEL=small
+ENV WHISPER_MODEL=tiny
 ENV WHISPER_DEVICE=cpu
 ENV WHISPER_COMPUTE=int8
 ENV WHISPER_LANG=nan
